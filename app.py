@@ -41,19 +41,23 @@ def create_qa_chain(vector_db, api_key, model_name):
     llm = ChatGroq(model_name=model_name, groq_api_key=api_key)
 
     template = """
-    You are a pharmaceutical regulation assistant.
-    Before answering any question, analyze if the user provided all necessary details.
+    You are a pharmaceutical regulation assistant. Your goal is to give regulatory answers that are accurate and helpful, even when user input is incomplete.
 
-    If details are missing, ask the user a **clarifying question** instead of answering.
-    Always ensure the response is **accurate and compliant with regulations**.
+    Follow this reasoning process:
+
+    1. Analyze the user’s question carefully.
+    2. If key information is missing (e.g. product name, country, indication), try to guess what the user might mean based on the question.
+    3. Provide a general but useful answer, using examples or known regulations when possible.
+    4. If the answer depends heavily on missing info, mention this briefly and invite the user to clarify.
+    5. Always be helpful and avoid asking multiple follow-up questions unless strictly necessary.
 
     Context: {context}
     Chat History: {chat_history}
     User's question: {question}
 
-    If all details are present, provide an answer.
-    If details are missing, ask a follow-up question.
+    Give a helpful, clear, and regulation-compliant answer. Do not refuse to answer unless absolutely required.
     """
+
 
     prompt = PromptTemplate(input_variables=["context", "chat_history", "question"], template=template)
 
