@@ -1,40 +1,30 @@
+import os
 import streamlit as st
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
 from langchain.chains import ConversationalRetrievalChain
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
-import faiss
-import pickle
-from langchain_community.docstore.in_memory import InMemoryDocstore
-from sentence_transformers import SentenceTransformer
-from tensorflow import keras
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.schema import Document
+from pypdf import PdfReader
+import pandas as pd
+
 
 import os
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 
-
 # Load vector database
-def load_vector_database(index_path="vector_db.index", metadata_path="vector_db_metadata.pkl", index_to_docstore_id_path="vector_db_index_to_docstore_id.pkl"):
-    index = faiss.read_index(index_path)
-
-    with open(metadata_path, "rb") as f:
-        docstore_dict = pickle.load(f)
-    docstore = InMemoryDocstore(docstore_dict)
-
-    with open(index_to_docstore_id_path, "rb") as f:
-        index_to_docstore_id = pickle.load(f)
-
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-    vector_db = FAISS(
-        index=index,
-        docstore=docstore,
-        index_to_docstore_id=index_to_docstore_id,
-        embedding_function=embeddings.embed_query
+def load_chroma_vector_db(persist_directory="chroma_bge_m3"):
+    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-m3")
+    vector_db = Chroma(
+        persist_directory=persist_directory,
+        embedding_function=embeddings,
+        collection_name="langchain"  
     )
     return vector_db
+
 
 # Create Conversational QA Chain
 def create_qa_chain(vector_db, api_key, model_name):
@@ -50,6 +40,8 @@ def create_qa_chain(vector_db, api_key, model_name):
     3. Provide a general but useful answer, using examples or known regulations when possible.
     4. If the answer depends heavily on missing info, mention this briefly and invite the user to clarify.
     5. Always be helpful and avoid asking multiple follow-up questions unless strictly necessary.
+    
+
 
     Context: {context}
     Chat History: {chat_history}
@@ -76,7 +68,7 @@ def ask_chatbot(qa_chain, user_query):
     chat_history = [(msg["role"], msg["content"]) for msg in st.session_state.chat_history]
 
     response = qa_chain.invoke({
-        "question": user_query,  # ✅ Changed from "query" to "question"
+        "question": user_query,  
         "chat_history": chat_history
     })
 
@@ -136,7 +128,7 @@ def main():
 
     # Bouton d'envoi
     if st.button("Envoyer") and st.session_state.user_input_text.strip():
-        vector_db = load_vector_database()
+        vector_db = load_chroma_vector_db("chroma_bge_m3")
         api_key = "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"
         model_name = "llama3-8b-8192"
         qa_chain = create_qa_chain(vector_db, api_key, model_name)
